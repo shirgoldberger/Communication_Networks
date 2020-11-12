@@ -40,7 +40,7 @@ def handle_with_dynamic_line(array_of_splited_line):
     return False
 
 
-def send_data_to_client(line, s, addr):
+def send_data_to_client(line, s, addr1):
     split_data = line.split(",")
     data_to_client = split_data[0] + "," + split_data[1] + "," + split_data[2]
     s.sendto(data_to_client.encode(), addr1)
@@ -77,3 +77,4 @@ while True:
         parent_data = get_data_from_parent()
         # send data to client
         send_data_to_client(parent_data, s, addr1)
+s.close()
