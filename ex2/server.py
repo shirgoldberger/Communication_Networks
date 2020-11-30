@@ -13,6 +13,7 @@ server.listen(1)
 client_socket, client_address = server.accept()
 print('Connection from: ', client_address)
 
+
 while True:
     try:
         client_socket.settimeout(1.0)
