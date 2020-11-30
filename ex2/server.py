@@ -2,81 +2,104 @@ import socket
 import sys
 import os.path
 
-MESSAGE404 = "HTTP/1.1 404 Not Found\r\nConnection: close\n\n"
-MESSAGE301 = "HTTP/1.1 301 Moved Permanently\nConnection: close\nLocation: /result.html\n\n"
+MESSAGE200 = "HTTP/1.1 200 OK\r\n"
+MESSAGE404 = "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n"
+MESSAGE301 = "HTTP/1.1 301 Moved Permanently\r\nConnection: close\r\nLocation: /result.html\r\n\r\n"
+INDEX = "/index.html"
+RESULT = "/result.html"
+CONNECTION = "Connection: "
+LEN = "Content-Length: "
 
 
-def reset_socket(socket):
-    socket.close()
+def reset_socket(server_socket, client_socket):
+    client_socket.close()
     print('Client disconnected')
-    socket, client_address = server.accept()
-    socket.settimeout(5.0)
-    return socket
+    client_socket, client_address = server_socket.accept()
+    print('Connection from: ', client_address)
+    client_socket.settimeout(1.0)
+    return client_socket
 
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind(('', int(sys.argv[1])))
-server.listen(1)
+def check_file_name(file_name):
+    if file_name == "/":
+        file_name = INDEX
+    if file_name == "/redirect":
+        file_name = RESULT
+    file_name = "files" + file_name
+    return file_name
 
-client_socket, client_address = server.accept()
-client_socket.settimeout(5.0)
-print('Connection from: ', client_address)
+
+def take_status_connection(data_array):
+    connection = ""
+    for x in data_array:
+        if x.startswith(CONNECTION):
+            connection = (x.split(' '))[1]
+            break
+    return connection
 
 
-while True:
-    try:
-        data_byte = client_socket.recv(300)
-        if not data_byte:
-            client_socket = reset_socket(client_socket)
-            continue
-        data = data_byte.decode()
-        print('Received: ', data)
-        if data == "":
-            client_socket = reset_socket(client_socket)
-            continue
-        data_array = data.split('\r\n')
-        connection = ""
-        for x in data_array:
-            if x.startswith("Connection:"):
-                connection = (x.split(' '))[1]
-                break
-        if connection == "":
-            client_socket = reset_socket(client_socket)
-            continue
-        file_name = (data_array[0].split(' '))[1]
-        if file_name == "/":
-            file_name = "/index.html"
-        file_name = "files" + file_name
-        if not os.path.isfile(file_name):
-            client_socket.send(MESSAGE404.encode())
+def main():
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind(('', int(sys.argv[1])))
+    server_socket.listen(1)
+
+    client_socket, client_address = server_socket.accept()
+    print('Connection from: ', client_address)
+    client_socket.settimeout(1.0)
+
+    while True:
+        try:
+            data_byte = client_socket.recv(300)
+            if not data_byte:
+                client_socket = reset_socket(server_socket, client_socket)
+                continue
+            data = data_byte.decode()
+            print('Received: ', data)
+            if data == "":
+                client_socket = reset_socket(server_socket, client_socket)
+                continue
+            data_array = data.split('\r\n')
+            # save status connection
+            connection = take_status_connection(data_array)
+            if connection == "":
+                client_socket = reset_socket(server_socket, client_socket)
+                continue
+            file_name = (data_array[0].split(' '))[1]
+            file_name = check_file_name(file_name)
+            # the file does not exist
+            if not os.path.isfile(file_name):
+                client_socket.send(MESSAGE404.encode())
+                if connection == "close":
+                    client_socket = reset_socket(server_socket, client_socket)
+                continue
+            # the file is an image or an icon
+            if file_name.endswith(("jpg", "ico")):
+                file = open(file_name, "rb")
+                content = file.read()
+                length = len(content)
+                message = (MESSAGE200 + CONNECTION + connection + "\r\n" + LEN + str(length) + "\r\n\r\n").encode()
+            else:
+                file = open(file_name, "r")
+                content = file.read().encode()
+                length = len(content)
+                message = (MESSAGE200 + CONNECTION + connection + "\r\n" + LEN
+                           + str(length) + "\r\n\r\n").encode()
+            if file_name == "files/result.html":
+                message = MESSAGE301.encode()
+            message += content
+            client_socket.send(message)
             if connection == "close":
-                client_socket = reset_socket(client_socket)
+                client_socket = reset_socket(server_socket, client_socket)
+            file.close()
+        except socket.timeout:
+            print("timeout")
+            client_socket = reset_socket(server_socket, client_socket)
             continue
-        if file_name.endswith(("jpg", "ico")):
-            file = open(file_name, "rb")
-            content = file.read()
-            length = len(content)
-            message = ("HTTP/1.1 200 OK\r\n" + "Connection: " + connection + "\r\nContent-Length: " + str(length) + "\r\n\r\n").encode()
-        else:
-            file = open(file_name, "r")
-            content = file.read().encode()
-            length = len(content)
-            message = ("HTTP/1.1 200 OK\r\n" + "Connection: " + connection + "\r\nContent-Length: "
-                       + str(length) + "\r\n\r\n").encode()
-        if file_name == "files/result.html":
-            message = MESSAGE301.encode()
-        message += content
-        client_socket.send(message)
-        if connection == "close":
-            client_socket = reset_socket(client_socket)
-        file.close()
-    except socket.timeout:
-        client_socket = reset_socket(client_socket)
-        continue
-    except IndexError:
-        client_socket = reset_socket(client_socket)
-        continue
+        except IndexError:
+            client_socket = reset_socket(server_socket, client_socket)
+            continue
 
 
-
+if __name__ == '__main__':
+    main()
 
