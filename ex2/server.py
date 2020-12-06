@@ -18,6 +18,15 @@ def reset_socket(client_socket):
     print('Client disconnected')
 
 
+def take_file_name(data_array):
+    file_name = ""
+    for x in data_array:
+        if x.startswith("GET"):
+            file_name = (x.split(" "))[1]
+            break
+    return file_name
+
+
 def check_file_name(file_name):
     if file_name == "/":
         file_name = INDEX
@@ -71,7 +80,7 @@ def main():
                 if connection == "":
                     reset_socket(client_socket)
                     break
-                file_name = (data_array[0].split(' '))[1]
+                file_name = take_file_name(data_array)
                 file_name = check_file_name(file_name)
                 print(f'file name: {file_name}')
                 # the file does not exist
