@@ -9,12 +9,13 @@ INDEX = "/index.html"
 RESULT = "/result.html"
 CONNECTION = "Connection: "
 LEN = "Content-Length: "
+TWO_LINES = "\r\n\r\n"
+ONE_LINE = "\r\n"
 
 
 def reset_socket(client_socket):
     client_socket.close()
     print('Client disconnected')
-    return client_socket
 
 
 def check_file_name(file_name):
@@ -49,26 +50,26 @@ def main():
                 data_byte = client_socket.recv(100)
                 if not data_byte:
                     if data == "":
-                        client_socket = reset_socket(client_socket)
+                        reset_socket(client_socket)
                         break
                 else:
                     data += data_byte.decode()
-                if '\r\n\r\n' not in data:
+                if TWO_LINES not in data:
                     continue
-                index = data.find('\r\n\r\n')
+                index = data.find(TWO_LINES)
                 if index == -1:
                     continue
                 real_data = data[0:index]
                 data = data[(index + 4):]
                 print('Received: ', data_byte.decode())
                 if real_data == "":
-                    client_socket = reset_socket(client_socket)
+                    reset_socket(client_socket)
                     break
-                data_array = real_data.split('\r\n')
+                data_array = real_data.split(ONE_LINE)
                 # save status connection
                 connection = take_status_connection(data_array)
                 if connection == "":
-                    client_socket = reset_socket(client_socket)
+                    reset_socket(client_socket)
                     break
                 file_name = (data_array[0].split(' '))[1]
                 file_name = check_file_name(file_name)
@@ -77,7 +78,7 @@ def main():
                 if not os.path.isfile(file_name):
                     client_socket.send(MESSAGE404.encode())
                     if connection == "close":
-                        client_socket = reset_socket(client_socket)
+                        reset_socket(client_socket)
                         break
                     else:
                         continue
@@ -86,7 +87,8 @@ def main():
                     with open(file_name, "rb") as file:
                         content = file.read()
                         length = os.stat(file_name).st_size
-                        message = (MESSAGE200 + CONNECTION + connection + "\r\n" + LEN + str(length) + "\r\n\r\n").encode()
+                        message = (MESSAGE200 + CONNECTION + connection + ONE_LINE + LEN + str(
+                            length) + TWO_LINES).encode()
                 else:
                     with open(file_name, "r") as file:
                         content = file.read().encode()
@@ -98,17 +100,17 @@ def main():
                 message += content
                 client_socket.send(message)
                 if connection == "close":
-                    client_socket = reset_socket(client_socket)
+                    reset_socket(client_socket)
                     break
             except socket.timeout:
                 print("timeout")
+                reset_socket(client_socket)
                 break
             except IndexError:
                 print("index error")
-                client_socket = reset_socket(client_socket)
+                reset_socket(client_socket)
                 break
 
 
 if __name__ == '__main__':
     main()
-
