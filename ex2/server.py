@@ -76,13 +76,10 @@ def main():
                 file_name = take_file_name(data_array)
                 file_name = check_file_name(file_name)
                 # the file does not exist
-                if not os.path.isfile(file_name):
+                if not os.path.isfile(file_name) and file_name != REDIRECT:
                     client_socket.send(MESSAGE404.encode())
-                    if connection == "close":
-                        client_socket.close()
-                        break
-                    else:
-                        continue
+                    client_socket.close()
+                    break
                 # the file is an image or an icon
                 if file_name == REDIRECT:
                     message = MESSAGE301.encode()
@@ -101,7 +98,7 @@ def main():
                                    + str(length) + TWO_LINES).encode()
                         message += content
                 client_socket.send(message)
-                if connection == "close":
+                if connection == "close" or file_name == REDIRECT:
                     client_socket.close()
                     break
             except socket.timeout:
