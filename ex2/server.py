@@ -55,6 +55,7 @@ def main():
                         client_socket.close()
                         break
                 else:
+                    print(data_byte.decode())
                     data += data_byte.decode()
                 if TWO_LINES not in data:
                     continue
@@ -63,7 +64,6 @@ def main():
                     continue
                 real_data = data[0:index]
                 data = data[(index + 4):]
-                print(data_byte.decode())
                 if real_data == "":
                     client_socket.close()
                     break
